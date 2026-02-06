@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Send, Book, Sparkles } from './Icons';
+import { Send, Sparkles, Palette } from './Icons';
 import { Message, IntelligenceMode } from '../types';
 import { MODES_CONFIG } from '../constants';
 
@@ -8,13 +8,29 @@ interface ChatProps {
   onSetMode: (mode: IntelligenceMode) => void;
   messages: Message[];
   onSendMessage: (text: string) => void;
+  onGenerateImage: (text: string) => void;
   isTyping: boolean;
+  isGeneratingImage: boolean;
+  creditsRemaining: number | null;
+  imageQuotaRemaining: number | null;
+  isDemo: boolean;
 }
 
-const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMessage, isTyping }) => {
+const Chat: React.FC<ChatProps> = ({
+  activeMode,
+  onSetMode,
+  messages,
+  onSendMessage,
+  onGenerateImage,
+  isTyping,
+  isGeneratingImage,
+  creditsRemaining,
+  imageQuotaRemaining,
+  isDemo,
+}) => {
   const [inputValue, setInputValue] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  
+
   const currentModeConfig = MODES_CONFIG[activeMode];
   const ModeIcon = currentModeConfig.icon;
 
@@ -24,11 +40,17 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping]);
+  }, [messages, isTyping, isGeneratingImage]);
 
   const handleSubmit = () => {
-    if (!inputValue.trim()) return;
-    onSendMessage(inputValue);
+    if (!inputValue.trim() || isTyping || isGeneratingImage) return;
+    onSendMessage(inputValue.trim());
+    setInputValue('');
+  };
+
+  const handleGenerateImage = () => {
+    if (!inputValue.trim() || isTyping || isGeneratingImage) return;
+    onGenerateImage(inputValue.trim());
     setInputValue('');
   };
 
@@ -40,7 +62,11 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
     const parts = text.split(/(\*\*.*?\*\*)/g);
     return parts.map((part, i) => {
       if (part.startsWith('**') && part.endsWith('**')) {
-        return <span key={i} className={`font-semibold ${currentModeConfig.textColor} brightness-110`}>{part.slice(2, -2)}</span>;
+        return (
+          <span key={i} className={`font-semibold ${currentModeConfig.textColor} brightness-110`}>
+            {part.slice(2, -2)}
+          </span>
+        );
       }
       return part;
     });
@@ -48,8 +74,6 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
 
   return (
     <div className="w-full lg:w-[420px] xl:w-[460px] flex flex-col border-t lg:border-t-0 lg:border-l border-white/5 bg-[#0A0A0A]/95 backdrop-blur-[40px] h-[50vh] lg:h-auto transition-colors duration-500">
-      
-      {/* Header */}
       <div className="p-5 border-b border-white/5 flex-shrink-0">
         <div className="flex items-center gap-4">
           <div className="relative">
@@ -58,8 +82,8 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
             </div>
             <div className={`absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-[#0A0A0A] ${activeMode === 'researcher' ? 'bg-cyan-500' : activeMode === 'coach' ? 'bg-emerald-500' : activeMode === 'mentor' ? 'bg-amber-500' : 'bg-purple-500'} shadow-[0_0_8px_rgba(255,255,255,0.4)]`} />
           </div>
-          
-          <div className="flex-1">
+
+          <div className="flex-1 min-w-0">
             <h3 className={`text-sm font-bold uppercase tracking-wider ${currentModeConfig.textColor}`}>{currentModeConfig.name}</h3>
             <div className="flex items-center gap-1.5 mt-0.5">
               <span className="w-1.5 h-1.5 rounded-full bg-white/40"></span>
@@ -67,9 +91,17 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
             </div>
           </div>
         </div>
+
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] text-white/70">
+            Créditos: <span className="text-white/90 font-semibold">{creditsRemaining ?? '--'}</span>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2 text-[11px] text-white/70">
+            Imágenes: <span className="text-white/90 font-semibold">{imageQuotaRemaining ?? '--'}</span> {isDemo ? 'demo' : 'semana'}
+          </div>
+        </div>
       </div>
-      
-      {/* Messages */}
+
       <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-6 no-scrollbar">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full text-center p-8 opacity-50">
@@ -79,78 +111,83 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
         )}
 
         {messages.map((msg, idx) => (
-          <div 
-            key={idx} 
-            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
-            style={{ animationDelay: `${idx * 0.05}s` }}
-          >
+          <div key={idx} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`} style={{ animationDelay: `${idx * 0.05}s` }}>
             <div className={`max-w-[90%] ${msg.role === 'agent' ? 'w-full' : ''}`}>
               {msg.role === 'agent' ? (
                 <div className="flex items-start gap-3 w-full">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 mt-0.5 border ${currentModeConfig.borderColor} bg-white/5`}>
-                     <ModeIcon className={`w-4 h-4 ${currentModeConfig.textColor}`} />
+                    <ModeIcon className={`w-4 h-4 ${currentModeConfig.textColor}`} />
                   </div>
-                  
+
                   <div className="flex flex-col gap-2 w-full">
                     {msg.image && (
                       <div className={`rounded-xl overflow-hidden border ${currentModeConfig.borderColor} shadow-2xl`}>
                         <img src={msg.image} alt="Generado por IA" className="w-full h-auto object-cover" />
                         <div className="bg-black/40 backdrop-blur-md px-3 py-2 border-t border-white/10 flex items-center gap-2">
                           <Sparkles className={`w-3 h-3 ${currentModeConfig.textColor}`} />
-                          <p className="text-[10px] text-white/60 uppercase tracking-wider font-medium">
-                            Renderizado con Gemini Vision Pro
-                          </p>
+                          <p className="text-[10px] text-white/60 uppercase tracking-wider font-medium">Renderizado con IA</p>
                         </div>
                       </div>
                     )}
                     {msg.content && (
-                       <div className={`relative bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm px-5 py-4`}>
-                         <p className="text-sm leading-relaxed text-white/90 font-light tracking-wide">{formatMessage(msg.content)}</p>
-                         
-                         {/* Grounding Sources */}
-                         {msg.groundingSources && msg.groundingSources.length > 0 && (
-                           <div className="mt-4 pt-3 border-t border-white/10">
-                             <p className="text-[10px] uppercase tracking-widest text-white/40 mb-2">Fuentes Verificadas</p>
-                             <div className="flex flex-col gap-1.5">
-                               {msg.groundingSources.map((source, sIdx) => (
-                                 <a 
-                                   key={sIdx} 
-                                   href={source.uri} 
-                                   target="_blank" 
-                                   rel="noopener noreferrer"
-                                   className="flex items-center gap-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors truncate"
-                                 >
-                                   <div className="w-1 h-1 rounded-full bg-cyan-500 flex-shrink-0" />
-                                   <span className="truncate">{source.title || source.uri}</span>
-                                 </a>
-                               ))}
-                             </div>
-                           </div>
-                         )}
-                       </div>
+                      <div className="relative bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm px-5 py-4">
+                        <p className="text-sm leading-relaxed text-white/90 font-light tracking-wide">{formatMessage(msg.content)}</p>
+
+                        {msg.usage && (
+                          <p className="mt-3 text-[11px] text-white/40 uppercase tracking-wide">
+                            -{msg.usage.creditsCharged} créditos · {msg.usage.modelUsed}
+                          </p>
+                        )}
+
+                        {msg.groundingSources && msg.groundingSources.length > 0 && (
+                          <div className="mt-4 pt-3 border-t border-white/10">
+                            <p className="text-[10px] uppercase tracking-widest text-white/40 mb-2">Fuentes verificadas</p>
+                            <div className="flex flex-col gap-1.5">
+                              {msg.groundingSources.map((source, sIdx) => (
+                                <a
+                                  key={sIdx}
+                                  href={source.uri}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2 text-xs text-cyan-400 hover:text-cyan-300 transition-colors truncate"
+                                >
+                                  <div className="w-1 h-1 rounded-full bg-cyan-500 flex-shrink-0" />
+                                  <span className="truncate">{source.title || source.uri}</span>
+                                </a>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 </div>
               ) : (
-                <div className={`rounded-2xl rounded-br-sm px-5 py-4 bg-gradient-to-br border border-white/10 text-white shadow-lg`}
-                     style={{ 
-                       background: activeMode === 'mentor' ? 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.1))' :
-                                   activeMode === 'researcher' ? 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.1))' :
-                                   activeMode === 'coach' ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1))' :
-                                   'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.1))'
-                     }}>
+                <div
+                  className="rounded-2xl rounded-br-sm px-5 py-4 bg-gradient-to-br border border-white/10 text-white shadow-lg"
+                  style={{
+                    background:
+                      activeMode === 'mentor'
+                        ? 'linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.1))'
+                        : activeMode === 'researcher'
+                          ? 'linear-gradient(135deg, rgba(6,182,212,0.2), rgba(6,182,212,0.1))'
+                          : activeMode === 'coach'
+                            ? 'linear-gradient(135deg, rgba(16,185,129,0.2), rgba(16,185,129,0.1))'
+                            : 'linear-gradient(135deg, rgba(139,92,246,0.2), rgba(139,92,246,0.1))',
+                  }}
+                >
                   <p className="text-sm leading-relaxed">{msg.content}</p>
                 </div>
               )}
             </div>
           </div>
         ))}
-        
-        {isTyping && (
+
+        {(isTyping || isGeneratingImage) && (
           <div className="flex justify-start animate-fadeIn">
             <div className="flex items-start gap-3">
               <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 border ${currentModeConfig.borderColor} bg-white/5`}>
-                 <ModeIcon className={`w-4 h-4 ${currentModeConfig.textColor}`} />
+                <ModeIcon className={`w-4 h-4 ${currentModeConfig.textColor}`} />
               </div>
               <div className="bg-white/5 border border-white/5 rounded-2xl rounded-tl-sm px-5 py-4">
                 <div className="flex gap-1.5">
@@ -164,12 +201,12 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
         )}
         <div ref={messagesEndRef} />
       </div>
-      
-      {/* Mode Selector & Input Area */}
+
       <div className="p-5 border-t border-white/5 flex-shrink-0 bg-black/20">
-        
         <div className="flex items-center justify-between mb-4">
-           <span className="text-[10px] uppercase tracking-widest text-white/30 font-bold">Modo Activo: <span className={currentModeConfig.textColor}>{currentModeConfig.name}</span></span>
+          <span className="text-[10px] uppercase tracking-widest text-white/30 font-bold">
+            Modo activo: <span className={currentModeConfig.textColor}>{currentModeConfig.name}</span>
+          </span>
         </div>
 
         <div className="flex gap-2 mb-4 overflow-x-auto pb-1 no-scrollbar">
@@ -177,14 +214,14 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
             const config = MODES_CONFIG[mode];
             const Icon = config.icon;
             const isActive = activeMode === mode;
-            
+
             return (
               <button
                 key={mode}
                 onClick={() => onSetMode(mode)}
                 className={`flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-300 ${
-                  isActive 
-                    ? `${config.bgColor} ${config.borderColor} ${config.textColor} shadow-[0_0_15px_-5px_currentColor]` 
+                  isActive
+                    ? `${config.bgColor} ${config.borderColor} ${config.textColor} shadow-[0_0_15px_-5px_currentColor]`
                     : 'bg-white/[0.03] border-white/5 text-white/40 hover:bg-white/[0.06] hover:text-white/70'
                 }`}
               >
@@ -196,19 +233,33 @@ const Chat: React.FC<ChatProps> = ({ activeMode, onSetMode, messages, onSendMess
         </div>
 
         <div className="relative group">
-          <div className={`absolute -inset-0.5 rounded-xl opacity-20 group-focus-within:opacity-100 transition duration-500 blur ${activeMode === 'researcher' ? 'bg-cyan-500' : activeMode === 'coach' ? 'bg-emerald-500' : activeMode === 'mentor' ? 'bg-amber-500' : 'bg-purple-500'}`}></div>
-          <div className="relative flex gap-3">
-            <input 
+          <div
+            className={`absolute -inset-0.5 rounded-xl opacity-20 group-focus-within:opacity-100 transition duration-500 blur ${activeMode === 'researcher' ? 'bg-cyan-500' : activeMode === 'coach' ? 'bg-emerald-500' : activeMode === 'mentor' ? 'bg-amber-500' : 'bg-purple-500'}`}
+          ></div>
+          <div className="relative flex gap-2">
+            <input
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={currentModeConfig.placeholder}
               className="w-full h-12 bg-[#0A0A0A] border border-white/10 rounded-xl px-4 text-sm text-white placeholder-white/20 transition-all focus:outline-none"
             />
-            
-            <button 
+
+            {activeMode === 'visionary' && (
+              <button
+                onClick={handleGenerateImage}
+                disabled={!inputValue.trim() || isTyping || isGeneratingImage}
+                className="w-12 h-12 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 bg-white/10 border border-white/10 text-white disabled:opacity-50 disabled:hover:scale-100"
+                title="Generar imagen"
+              >
+                <Palette className="w-5 h-5" />
+              </button>
+            )}
+
+            <button
               onClick={handleSubmit}
-              className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 text-[#0A0A0A]`}
+              disabled={!inputValue.trim() || isTyping || isGeneratingImage}
+              className="w-12 h-12 rounded-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95 text-[#0A0A0A] disabled:opacity-50 disabled:hover:scale-100"
               style={{ backgroundColor: MODES_CONFIG[activeMode].color }}
             >
               <Send className="w-5 h-5" />

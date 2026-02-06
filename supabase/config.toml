@@ -1,0 +1,13 @@
+project_id = "ngx-ebook-musclev1"
+
+[functions.ai-chat]
+verify_jwt = false
+
+[functions.ai-image]
+verify_jwt = false
+
+[functions.credits-balance]
+verify_jwt = false
+
+[functions.ai-audio]
+verify_jwt = false

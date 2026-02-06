@@ -1,10 +1,21 @@
 export type IntelligenceMode = 'mentor' | 'researcher' | 'coach' | 'visionary';
 
+export interface UsageSummary {
+  creditsCharged: number;
+  modelUsed: string;
+}
+
+export interface GroundingSource {
+  title: string;
+  uri: string;
+}
+
 export interface Message {
   role: 'agent' | 'user';
   content: string;
   image?: string; // Base64 data string
-  groundingSources?: { title: string; uri: string }[];
+  groundingSources?: GroundingSource[];
+  usage?: UsageSummary;
   timestamp: Date;
 }
 
